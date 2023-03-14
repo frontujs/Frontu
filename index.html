@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New frm virtual dom</title>
+    <script src="./main.js"></script>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script>
+        class Title extends SkyComponent {
+            constructor(props) {
+                super(props);
+            }
+            render() {
+                return `
+                    <div>
+                        <h1 class="title">${this.props.children}</h1>
+                    </div>   
+                    `;
+            }
+        }
+        Sky.Registry.define('app-title', Title);
+
+
+        class InputValue extends SkyComponent {
+            constructor(props) {
+                super(props);
+                this.state = {
+                    value: ""
+                }
+            }
+            didMount() {
+                this.eventBinding('input', 'input', (event) => this.onClickButton(event))
+            }
+            onClickButton(event) {
+
+
+            }
+            render() {
+                return `
+                    <div>
+                        <br>
+                        <br>
+                       <input type="text" name="input"/>
+                       <app-title>value: ${this.state.value}</app-title>
+                    </div>   
+                    `;
+            }
+        }
+        Sky.Registry.define('app-input-value', InputValue);
+
+        class IncrementalPrime extends SkyComponent {
+            constructor(props) {
+                super(props);
+                this.state = {
+                    number: 1
+                }
+            }
+            didMount() {
+                this.eventBinding('button', 'click', (event) => this.onClickButton())
+            }
+
+            onClickButton() {
+                this.setState(state => ({ number: state.number + 1 }))
+            }
+            render() {
+
+                return `
+                    <div>
+                        <h1>Hello <span>${this.state.number}</span> number is:</h1>
+                        ${this.state.number % 2 == 0 ? '<app-title>prime</app-title>' : '<app-title>no prime</app-title>'}
+                        <div>${this.state.number % 2 == 0 ? '<strong>Sniuk</strong>!!' : '<italic>Sniuk</italic>'}</div>
+                        State: 
+                        ${this.state.number}
+                        <button>Increase</button>
+                        <div style="padding-left: 50px; border: 1px solid gray;">${this.props.children}</div>
+                    </div>   
+                    `;
+            }
+        }
+        Sky.Registry.define('app-incremental-prime', IncrementalPrime);
+
+
+
+        class HelloWorld extends SkyComponent {
+
+            constructor(props) {
+                super(props);
+            }
+
+            render() {
+                return `
+                    <div>
+                        <app-incremental-prime>
+                        </app-incremental-prime>
+                        <app-incremental-prime>
+                        </app-incremental-prime>
+                    </div>     
+                `;
+            }
+        }
+        Sky.Registry.define('app-hello-world', HelloWorld);
+
+        Sky.DOMRender('<app-hello-world></app-hello-world>', document.querySelector('#app'));
+
+    </script>
+
+</body>
+
+</html>
