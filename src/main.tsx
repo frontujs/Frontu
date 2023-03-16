@@ -13,6 +13,11 @@ var getNodeContent = function (node: { childNodes: string | any[]; textContent: 
     if (node.childNodes && node.childNodes.length > 0) return null;
     return node.textContent;
 };
+export class Frontu {
+    static store: {};
+    static COMPONENT_TYPE: number = 999;
+    static Registry = {};
+}
 export class FrontuComponent {
     container: any;
     store: any;
@@ -96,10 +101,10 @@ export class FrontuComponent {
 
 
 }
-var Frontu = {}
-Frontu.Store = {}
-Frontu.COMPONENT_TYPE = 999;
-Frontu.Registry = {}
+
+
+
+
 Frontu.Registry.store = {}
 Frontu.Registry.willMount = {}
 Frontu.Registry.define = function (name: string | number, component: any) {

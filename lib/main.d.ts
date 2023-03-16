@@ -1,3 +1,7 @@
+export declare class Frontu {
+    static store: {};
+    static COMPONENT_TYPE: number;
+}
 export declare class FrontuComponent {
     container: any;
     store: any;
