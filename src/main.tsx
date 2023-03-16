@@ -1,3 +1,4 @@
+
 /**
  * Convert a template string into HTML DOM nodes
  * @param  {String} str The template string
@@ -13,10 +14,31 @@ var getNodeContent = function (node: { childNodes: string | any[]; textContent: 
     if (node.childNodes && node.childNodes.length > 0) return null;
     return node.textContent;
 };
+interface IFrontuRegistryStore {
+    [key: string]: FrontuComponent,
+}
+interface IFrontuRegistryWillMount {
+    [key: string]: boolean,
+}
+class FrontuRegistry {
+    store:IFrontuRegistryStore = {}
+    willMount:IFrontuRegistryWillMount = {}
+    define(name: string, component: FrontuComponent) {
+        this.store[name] = component;
+    }
+}
 export class Frontu {
     static store: {};
     static COMPONENT_TYPE: number = 999;
-    static Registry = {};
+    static Registry:FrontuRegistry = new FrontuRegistry();
+}
+
+interface IFrontuComponentEventBindingElement {
+    element: HTMLElement,
+    callback: CallableFunction
+}
+interface IFrontuComponentEventBinding {
+    [key: string]: IFrontuComponentEventBindingElement[],
 }
 export class FrontuComponent {
     container: any;
@@ -24,7 +46,7 @@ export class FrontuComponent {
     props: { container: any; store: any; };
     state: {};
     html: string;
-    eventBindingStore: {};
+    eventBindingStore: IFrontuComponentEventBinding = {};
     validElementTree: {};
 
     constructor(props: { container: any; store: any; }) {
@@ -49,15 +71,15 @@ export class FrontuComponent {
     }
     // update the state and call onUpdate
     setState(handler: (arg0: any) => any) {
-        if (typeof handler !== 'function') {
+        /* if (typeof handler !== 'function') {
             this.state = { ...this.state, ...handler };
             if (!this.onUpdate) return this.state;
             return this.onUpdate(this.state);
-        }
+        } */
         this.state = handler(this.state)
 
         if (!this.onUpdate) return this.state;
-        return this.onUpdate(this.state);
+        return this.onUpdate();
     }
     onUpdate() {
         this.willMount();
@@ -105,11 +127,7 @@ export class FrontuComponent {
 
 
 
-Frontu.Registry.store = {}
-Frontu.Registry.willMount = {}
-Frontu.Registry.define = function (name: string | number, component: any) {
-    Frontu.Registry.store[name] = component;
-}
+
 
 Frontu.Element = {}
 Frontu.Element.GetType = function (node: { nodeType: number; localName: string | number; }) {
