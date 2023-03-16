@@ -13,13 +13,14 @@ var getNodeContent = function (node) {
     if (node.childNodes && node.childNodes.length > 0) return null;
     return node.textContent;
 };
-class SkyComponent {
+class FrontuComponent {
 
     constructor(props) {
         this.container = props.container;
         this.store = props.store;
         this.props = props;
         this.state = {}
+        this.html = '';
         this.eventBindingStore = {}
         this.validElementTree = {}
     }
@@ -32,7 +33,7 @@ class SkyComponent {
 
     }
     willMount() {
-        Sky.Registry.willMount[this.store] = true;
+        Frontu.Registry.willMount[this.store] = true;
     }
     // update the state and call onUpdate
     setState(handler) {
@@ -48,28 +49,32 @@ class SkyComponent {
     }
     onUpdate() {
         this.willMount();
-        const newHTML = this.render();
-        let children = stringToHTML(newHTML);
-        this.getValidElementTree(children);
+        this.html = this.render();
+        let children = stringToHTML(this.html);
+
         const storePieces = this.store.split('.');
         let indexScope = parseInt(storePieces[storePieces.length - 1]);
-        Sky.DOMRenderParseChild(children[0], this.container, this.store, indexScope, this.container.childNodes.length);
-        Sky.DOMRenderWillMount();
+        Frontu.DOMRenderParseChild(children[0], this.container, this.store, indexScope, this.container.childNodes.length);
+        Frontu.DOMRenderWillMount();
     }
     eventBinding(selector, type, callback) {
         if (this.eventBindingStore[selector + '.' + type]) {
             this.cleanEventBinding(selector, type);
         }
-        // Add validation for avoid add events to elements of another components
         this.eventBindingStore[selector + '.' + type] = []
-        const storePieces = this.store.split('.');
-        let indexScope = parseInt(storePieces[storePieces.length - 1]);
-        let elements = this.container.childNodes[indexScope].querySelectorAll(selector);
-        for (let index = 0; index < elements.length; index++) {
-            const element = elements[index];
-            element.addEventListener(type, callback);
-            this.eventBindingStore[selector + '.' + type].push({ element, callback })
+        for (const key in this.validElementTree) {
+            if (Object.hasOwnProperty.call(this.validElementTree, key)) {
+                const element = this.validElementTree[key];
+
+                if (element.nodeType == 1) {
+                    if (element.matches(selector)) {
+                        element.addEventListener(type, callback);
+                        this.eventBindingStore[selector + '.' + type].push({ element, callback })
+                    }
+                }
+            }
         }
+
 
     }
     cleanEventBinding(selector, type) {
@@ -78,36 +83,29 @@ class SkyComponent {
             element.element.removeEventListener(type, element.callback);
         }
     }
-    getValidElementTree(children, store = "") {
-        for (let index = 0; index < children.length; index++) {
-            const element = children[index];
-            this.validElementTree[store + "." + index] = element;
-            this.getValidElementTree(element.childNodes, store = "." + index)
-        }
-    }
 
 
 }
-var Sky = {}
-Sky.Store = {}
-Sky.COMPONENT_TYPE = 999;
-Sky.Registry = {}
-Sky.Registry.store = {}
-Sky.Registry.willMount = {}
-Sky.Registry.define = function (name, component) {
-    Sky.Registry.store[name] = component;
+var Frontu = {}
+Frontu.Store = {}
+Frontu.COMPONENT_TYPE = 999;
+Frontu.Registry = {}
+Frontu.Registry.store = {}
+Frontu.Registry.willMount = {}
+Frontu.Registry.define = function (name, component) {
+    Frontu.Registry.store[name] = component;
 }
 
-Sky.Element = {}
-Sky.Element.GetType = function (node) {
+Frontu.Element = {}
+Frontu.Element.GetType = function (node) {
     if (node.nodeType == 1) {
-        if (Sky.Registry.store[node.localName]) {
-            return Sky.COMPONENT_TYPE;
+        if (Frontu.Registry.store[node.localName]) {
+            return Frontu.COMPONENT_TYPE;
         }
     }
     return node.nodeType
 }
-Sky.Element.GetProps = function (node) {
+Frontu.Element.GetProps = function (node) {
     let props = {}
     for (let index = 0; index < node.attributes.length; index++) {
         const element = node.attributes[index];
@@ -116,53 +114,67 @@ Sky.Element.GetProps = function (node) {
     props['children'] = node.innerHTML;
     return props;
 }
-Sky.Element.Create = function (node, props = {}, container, store = "0") {
+Frontu.Element.Create = function (node, props = {}, container, store = "0") {
 
-    if (Sky.Store[store]) {
-        Sky.Store[store].update({ container, store, ...props });
+    if (Frontu.Store[store]) {
+        Frontu.Store[store].update({ container, store, ...props });
     } else {
-        Sky.Store[store] = new Sky.Registry.store[node.localName]({ container, store, ...props });
+        Frontu.Store[store] = new Frontu.Registry.store[node.localName]({ container, store, ...props });
     }
 
-    let html = Sky.Store[store].render();
-    Sky.Store[store].willMount();
-    let children = stringToHTML(html);
-    Sky.Store[store].getValidElementTree(children);
+    Frontu.Store[store].html = Frontu.Store[store].render();
+    Frontu.Store[store].willMount();
+    let children = stringToHTML(Frontu.Store[store].html);
     return children[0];
 }
-Sky.DOMRender = function (component, container) {
-    Sky.DOMRenderComponent(component, container, "0");
+Frontu.DOMRender = function (component, container) {
+    Frontu.DOMRenderComponent(component, container, "0");
 }
-
-Sky.DOMRenderComponent = function (initialHTML, container, store = ".0", update = false) {
+Frontu.DOMRenderGetParentComponentStore = function (store) {
+    let storeElements = store.split('.');
+    let currentStore = storeElements.join('.');
+    let storeComponents = Object.keys(Frontu.Store);
+    while (!storeComponents.includes(currentStore) && currentStore) {
+        storeElements.pop();
+        currentStore = storeElements.join('.');
+    }
+    return currentStore;
+}
+Frontu.DOMRenderAddElementToParent = function (element, store) {
+    let parentStore = Frontu.DOMRenderGetParentComponentStore(store);
+    if (Frontu.Store[parentStore]) {
+        Frontu.Store[parentStore].validElementTree[store] = element;
+    }
+}
+Frontu.DOMRenderComponent = function (initialHTML, container, store = ".0", update = false) {
 
     let children = stringToHTML(initialHTML);
 
     const storePieces = store.split('.');
     let indexScope = parseInt(storePieces[storePieces.length - 1]);
-    console.log("indexScope", indexScope);
+    /* console.log("indexScope", indexScope);
     console.log("children", children);
-    console.log("container", container);
+    console.log("container", container); */
 
     for (let index = 0; index < children.length; index++) {
         const child = children[index];
-        Sky.DOMRenderParseChild(child, container, store + "." + index, index, 999);
+        Frontu.DOMRenderParseChild(child, container, store + "." + index, index, 999);
     }
 
 
     // Mounting components
-    Sky.DOMRenderWillMount();
+    Frontu.DOMRenderWillMount();
 
 }
-Sky.DOMRenderWillMount = function () {
-    for (const storageKey in Sky.Registry.willMount) {
-        if (Object.hasOwnProperty.call(Sky.Registry.willMount, storageKey)) {
-            Sky.Store[storageKey].didMount();
-            delete Sky.Registry.willMount[storageKey];
+Frontu.DOMRenderWillMount = function () {
+    for (const storageKey in Frontu.Registry.willMount) {
+        if (Object.hasOwnProperty.call(Frontu.Registry.willMount, storageKey)) {
+            Frontu.Store[storageKey].didMount();
+            delete Frontu.Registry.willMount[storageKey];
         }
     }
 }
-Sky.DOMRenderParseChild = function (element, container, store = "0", index = 0, newChildrenCount) {
+Frontu.DOMRenderParseChild = function (element, container, store = "0", index = 0, newChildrenCount) {
 
     let newContainer = null
     let nodeType
@@ -170,7 +182,7 @@ Sky.DOMRenderParseChild = function (element, container, store = "0", index = 0, 
 
     if (currentNode) {
 
-        nodeType = Sky.Element.GetType(element);
+        nodeType = Frontu.Element.GetType(element);
 
         if (nodeType == Node.ELEMENT_NODE) {
             newContainer = element.cloneNode(false);
@@ -179,15 +191,15 @@ Sky.DOMRenderParseChild = function (element, container, store = "0", index = 0, 
             newContainer = element.cloneNode(false);
             newContainer.nodeValue = element.nodeValue
         }
-        if (nodeType == Sky.COMPONENT_TYPE) {
-            element = Sky.Element.Create(element, Sky.Element.GetProps(element), container, store).cloneNode(true);
+        if (nodeType == Frontu.COMPONENT_TYPE) {
+            element = Frontu.Element.Create(element, Frontu.Element.GetProps(element), container, store).cloneNode(true);
             newContainer = element.cloneNode(false);
-            nodeType = Sky.Element.GetType(newContainer);
+            nodeType = Frontu.Element.GetType(newContainer);
         }
 
 
 
-        if (nodeType != Sky.Element.GetType(container.childNodes[index])) {
+        if (nodeType != Frontu.Element.GetType(container.childNodes[index])) {
             container.replaceChild(newContainer, container.childNodes[index]);
         } else {
             if (nodeType == 1) {
@@ -210,10 +222,10 @@ Sky.DOMRenderParseChild = function (element, container, store = "0", index = 0, 
 
 
     } else {
-        nodeType = Sky.Element.GetType(element);
-        if (nodeType == Sky.COMPONENT_TYPE) {
+        nodeType = Frontu.Element.GetType(element);
+        if (nodeType == Frontu.COMPONENT_TYPE) {
 
-            element = Sky.Element.Create(element, Sky.Element.GetProps(element), container, store);
+            element = Frontu.Element.Create(element, Frontu.Element.GetProps(element), container, store);
             newContainer = element.cloneNode(false);
         }
         if (nodeType == Node.TEXT_NODE) {
@@ -232,14 +244,15 @@ Sky.DOMRenderParseChild = function (element, container, store = "0", index = 0, 
 
     }
     while (newChildrenCount < container.childNodes.length) {
-        console.log("Se debe borrar elementos en", container)
+        /* console.log("Se debe borrar elementos en", container) */
         container.removeChild(container.lastChild);
     }
     let newContainerReal = container.childNodes[index];
 
+    Frontu.DOMRenderAddElementToParent(container.childNodes[index], store);
     for (let index = 0; index < element.childNodes.length; index++) {
         const newStore = store + "." + index;
-        Sky.DOMRenderParseChild(element.childNodes[index], newContainerReal, newStore, index, element.childNodes.length);
+        Frontu.DOMRenderParseChild(element.childNodes[index], newContainerReal, newStore, index, element.childNodes.length);
 
     }
 }  
