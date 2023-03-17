@@ -1,21 +1,7 @@
+import { Component } from "./component";
 
-/**
- * Convert a template string into HTML DOM nodes
- * @param  {String} str The template string
- * @return {Node}       The template HTML
- */
-var stringToHTML = function (str: string) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(str, 'text/html');
-    return doc.body.childNodes;
-};
-
-var getNodeContent = function (node: { childNodes: string | any[]; textContent: any; }) {
-    if (node.childNodes && node.childNodes.length > 0) return null;
-    return node.textContent;
-};
 interface IFrontuRegistryStore {
-    [key: string]: FrontuComponent,
+    [key: string]: Component,
 }
 interface IFrontuRegistryWillMount {
     [key: string]: boolean,
@@ -23,7 +9,7 @@ interface IFrontuRegistryWillMount {
 class FrontuRegistry {
     store:IFrontuRegistryStore = {}
     willMount:IFrontuRegistryWillMount = {}
-    define(name: string, component: FrontuComponent) {
+    define(name: string, component: Component) {
         this.store[name] = component;
     }
 }
@@ -33,103 +19,42 @@ export class Frontu {
     static Registry:FrontuRegistry = new FrontuRegistry();
 }
 
-interface IFrontuComponentEventBindingElement {
-    element: HTMLElement,
-    callback: CallableFunction
-}
-interface IFrontuComponentEventBinding {
-    [key: string]: IFrontuComponentEventBindingElement[],
-}
-export class FrontuComponent {
-    container: any;
-    store: any;
-    props: { container: any; store: any; };
-    state: {};
-    html: string;
-    eventBindingStore: IFrontuComponentEventBinding = {};
-    validElementTree: {};
 
-    constructor(props: { container: any; store: any; }) {
-        this.container = props.container;
-        this.store = props.store;
-        this.props = props;
-        this.state = {}
-        this.html = '';
-        this.eventBindingStore = {}
-        this.validElementTree = {}
-    }
-    update(props: { container: any; store: any; }) {
-        this.container = props.container;
-        this.store = props.store;
-        this.props = props;
-    }
-    didMount() {
 
-    }
-    willMount() {
-        Frontu.Registry.willMount[this.store] = true;
-    }
-    // update the state and call onUpdate
-    setState(handler: (arg0: any) => any) {
-        /* if (typeof handler !== 'function') {
-            this.state = { ...this.state, ...handler };
-            if (!this.onUpdate) return this.state;
-            return this.onUpdate(this.state);
-        } */
-        this.state = handler(this.state)
-
-        if (!this.onUpdate) return this.state;
-        return this.onUpdate();
-    }
-    onUpdate() {
-        this.willMount();
-        this.html = this.render();
-        let children = stringToHTML(this.html);
-
-        const storePieces = this.store.split('.');
-        let indexScope = parseInt(storePieces[storePieces.length - 1]);
-        Frontu.DOMRenderParseChild(children[0], this.container, this.store, indexScope, this.container.childNodes.length);
-        Frontu.DOMRenderWillMount();
-    }
-    render(): any {
-        throw new Error("Method not implemented.");
-    }
-    eventBinding(selector: string, type: string, callback: any) {
-        if (this.eventBindingStore[selector + '.' + type]) {
-            this.cleanEventBinding(selector, type);
-        }
-        this.eventBindingStore[selector + '.' + type] = []
-        for (const key in this.validElementTree) {
-            if (Object.hasOwnProperty.call(this.validElementTree, key)) {
-                const element = this.validElementTree[key];
-
-                if (element.nodeType == 1) {
-                    if (element.matches(selector)) {
-                        element.addEventListener(type, callback);
-                        this.eventBindingStore[selector + '.' + type].push({ element, callback })
-                    }
-                }
+export class FrontuElement {
+    GetType(node: { nodeType: number; localName: string | number; }) {
+        if (node.nodeType == 1) {
+            if (Frontu.Registry.store[node.localName]) {
+                return Frontu.COMPONENT_TYPE;
             }
         }
-
-
+        return node.nodeType
     }
-    cleanEventBinding(selector: string, type: string) {
-        for (let index = 0; index < this.eventBindingStore[selector + '.' + type].length; index++) {
-            const element = this.eventBindingStore[selector + '.' + type][index];
-            element.element.removeEventListener(type, element.callback);
+    GetProps = function (node: { attributes: string | any[]; innerHTML: any; }) {
+        let props:any = {}
+        for (let index = 0; index < node.attributes.length; index++) {
+            const element = node.attributes[index];
+            props[element.name] = element.value
         }
+        props['children'] = node.innerHTML;
+        return props;
     }
+    Create = function (node: { localName: string | number; }, props = {}, container: any, store = "0", frontu: Frontu) {
 
-
+       /*  if (Frontu.Store[store]) {
+            Frontu.Store[store].update({ container, store, ...props });
+        } else {
+            Frontu.Store[store] = new Frontu.Registry.store[node.localName]({ container, store, ...props });
+        }
+    
+        Frontu.Store[store].html = Frontu.Store[store].render();
+        Frontu.Store[store].willMount();
+        let children = stringToHTML(Frontu.Store[store].html);
+        return children[0]; */
+    }
 }
 
-
-
-
-
-
-Frontu.Element = {}
+/* Frontu.Element = {}
 Frontu.Element.GetType = function (node: { nodeType: number; localName: string | number; }) {
     if (node.nodeType == 1) {
         if (Frontu.Registry.store[node.localName]) {
@@ -137,8 +62,8 @@ Frontu.Element.GetType = function (node: { nodeType: number; localName: string |
         }
     }
     return node.nodeType
-}
-Frontu.Element.GetProps = function (node: { attributes: string | any[]; innerHTML: any; }) {
+} */
+/* Frontu.Element.GetProps = function (node: { attributes: string | any[]; innerHTML: any; }) {
     let props = {}
     for (let index = 0; index < node.attributes.length; index++) {
         const element = node.attributes[index];
@@ -146,20 +71,8 @@ Frontu.Element.GetProps = function (node: { attributes: string | any[]; innerHTM
     }
     props['children'] = node.innerHTML;
     return props;
-}
-Frontu.Element.Create = function (node: { localName: string | number; }, props = {}, container: any, store = "0") {
-
-    if (Frontu.Store[store]) {
-        Frontu.Store[store].update({ container, store, ...props });
-    } else {
-        Frontu.Store[store] = new Frontu.Registry.store[node.localName]({ container, store, ...props });
-    }
-
-    Frontu.Store[store].html = Frontu.Store[store].render();
-    Frontu.Store[store].willMount();
-    let children = stringToHTML(Frontu.Store[store].html);
-    return children[0];
-}
+} */
+/* 
 Frontu.DOMRender = function (component: any, container: any) {
     Frontu.DOMRenderComponent(component, container, "0");
 }
@@ -185,9 +98,7 @@ Frontu.DOMRenderComponent = function (initialHTML: any, container: any, store = 
 
     const storePieces = store.split('.');
     let indexScope = parseInt(storePieces[storePieces.length - 1]);
-    /* console.log("indexScope", indexScope);
-    console.log("children", children);
-    console.log("container", container); */
+
 
     for (let index = 0; index < children.length; index++) {
         const child = children[index];
@@ -277,7 +188,7 @@ Frontu.DOMRenderParseChild = function (element: { cloneNode: (arg0: boolean) => 
 
     }
     while (newChildrenCount < container.childNodes.length) {
-        /* console.log("Se debe borrar elementos en", container) */
+       
         container.removeChild(container.lastChild);
     }
     let newContainerReal = container.childNodes[index];
@@ -288,4 +199,4 @@ Frontu.DOMRenderParseChild = function (element: { cloneNode: (arg0: boolean) => 
         Frontu.DOMRenderParseChild(element.childNodes[index], newContainerReal, newStore, index, element.childNodes.length);
 
     }
-}  
+}   */
