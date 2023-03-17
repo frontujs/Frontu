@@ -2,6 +2,11 @@
     "compilerOptions": {
         "target": "es5",
         "module": "commonjs",
+        "lib": [
+            "es6",
+            "dom",
+            "es2017"
+        ],
         "declaration": true,
         "outDir": "./lib",
         "strict": true

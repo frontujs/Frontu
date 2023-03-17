@@ -1,4 +1,15 @@
 
+declare global {
+    interface Window { frontuComponents: any; }
+}
+export function declareComponent(componentClass: any, tagname: string) {
+    if (!window.frontuComponents) {
+        window.frontuComponents = {}
+    }
+    if (!window.frontuComponents[tagname]) {
+        window.frontuComponents[tagname] = componentClass;
+    }
+}
 export interface FrontuComponentEventBindingElement {
     type: string,
     callback: CallableFunction
@@ -17,6 +28,7 @@ export class Component implements ComponentType{
     props: { container: any; store: any; };
     state: {};
     html: string;
+    tagName: string;
     eventBindingStore: FrontuComponentEventBinding = {};
     validElementTree: {};
 
@@ -28,6 +40,9 @@ export class Component implements ComponentType{
         this.html = '';
         this.eventBindingStore = {}
         this.validElementTree = {}
+        this.tagName = (<any>this).constructor.name;
+       
+      
     }
     update(props: { container: any; store: any; }) {
         this.container = props.container;
@@ -38,15 +53,14 @@ export class Component implements ComponentType{
 
     }
     willMount() {
-       /*  Frontu.Registry.willMount[this.store] = true; */
+
+    }
+    beforeWillMount() {
+        this.eventBindingStore = {}; // Resets events
     }
     // update the state and call onUpdate
     setState(handler: (arg0: any) => any) {
-        /* if (typeof handler !== 'function') {
-            this.state = { ...this.state, ...handler };
-            if (!this.onUpdate) return this.state;
-            return this.onUpdate(this.state);
-        } */
+
         this.state = handler(this.state)
 
         if (!this.onUpdate) return this.state;
@@ -55,40 +69,18 @@ export class Component implements ComponentType{
     onUpdate() {
         this.willMount();
         this.html = this.render();
-      /*   let children = stringToHTML(this.html); */
-/* 
-        const storePieces = this.store.split('.');
-        let indexScope = parseInt(storePieces[storePieces.length - 1]);
-        Frontu.DOMRenderParseChild(children[0], this.container, this.store, indexScope, this.container.childNodes.length);
-        Frontu.DOMRenderWillMount(); */
+
     }
     render(): any {
         throw new Error("Method not implemented.");
     }
     eventBinding(selector: string, type: string, callback: any) {
-        /* if (this.eventBindingStore[selector + '.' + type]) {
-            this.cleanEventBinding(selector, type);
-        } */
+
         if (!this.eventBindingStore[selector] ) {
             this.eventBindingStore[selector] = []
         }   
         this.eventBindingStore[selector].push({ type, callback })
-        /*
-        this.eventBindingStore[selector + '.' + type] = []
-        for (const key in this.validElementTree) {
-            if (Object.hasOwnProperty.call(this.validElementTree, key)) {
-                const element = this.validElementTree[key];
-
-                if (element.nodeType == 1) {
-                    if (element.matches(selector)) {
-                        element.addEventListener(type, callback);
-                        this.eventBindingStore[selector + '.' + type].push({ element, callback })
-                    }
-                }
-            }
-        } */
-
-
+        
     }
     cleanEventBinding(selector: string, type: string) {
        /*  for (let index = 0; index < this.eventBindingStore[selector + '.' + type].length; index++) {

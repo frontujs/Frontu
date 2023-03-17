@@ -2,9 +2,11 @@ import { Component, ComponentType, FrontuComponentEventBinding, FrontuComponentE
 import * as utils from './utils'
 
 declare global {
-    interface Window { frontuElements: any; }
+    interface Window { frontuElements: any; nodeTextTemplate: any }
 }
-
+export interface SustitutionDictionary {
+    [key: string]: string,
+}
 interface IComponentType {
     new (props: any): Component;
 }
@@ -15,28 +17,28 @@ interface ElementType {
     events: FrontuComponentEventBindingElement[]
 }
 var render = function (component: Component, container: HTMLElement | null) {
+    /* console.log("instance from define", window.frontuComponents["HelloWorld"]); */
     /* const component = new component({}); */
     component.container = container as HTMLElement;
+    component.beforeWillMount();
     component.willMount();
-    console.log("instance", component);
-    console.log("instance.render()", component.render());
-    const elements = getElementsFromHTML(component.render(), component.eventBindingStore);
+    const renderTemplate = component.render()
+    /* console.log("instance", component);
+    console.log("instance.render()", renderTemplate); */
+    const elements = getElementsFromHTML(renderTemplate.html, component.eventBindingStore, renderTemplate.substitutions);
     window.frontuElements = elements;
-    console.log("childrens", elements); 
+    /* console.log("childrens", elements);  */
     domRenderElement(elements, container, 0, component);
 };
 var domRenderElement = function (element: ElementType, container: HTMLElement | null, index: number, component: Component) {
    
     if (element.type == "" && typeof element.children == "string") {  // Is type text
-        console.log("Element text");
         if (container?.childNodes[index]) { // Exist node on DOM
-            console.log("Element text exist",  container.childNodes[index]);
             if ( element.children != container.childNodes[index].nodeValue) { // Check if its diferent text
                 container.childNodes[index].nodeValue = element.children
             }
             
         } else {
-            console.log("Element text does not exist");
             const currentLenght = container?.childNodes?.length ? container.childNodes.length : 0;
             let newNode = null;
             if (currentLenght > index) {  // Insertbefore
@@ -51,7 +53,6 @@ var domRenderElement = function (element: ElementType, container: HTMLElement | 
         return;
     }
     if (element.type != "") {  // Is type element
-        console.log("Element type:", element.type)
         if (container?.childNodes[index]) { // Exist node on DOM
             for (let i = 0; i < element.children.length; i++) {
                 const newElement = element.children[i];
@@ -67,6 +68,7 @@ var domRenderElement = function (element: ElementType, container: HTMLElement | 
                 newNode = document.createElement(element.type);
                 container?.appendChild(newNode)
             }
+            
             for (let e = 0; e < element.events.length; e++) {
                 const event = element.events[e];
                 newNode.addEventListener(event.type, () => { event.callback(); render(component, component.container); });
@@ -79,7 +81,6 @@ var domRenderElement = function (element: ElementType, container: HTMLElement | 
         }
     }
     if (element.type == "") {  // Is type text
-        console.log("Element with children but without type")
         for (let i = 0; i < element.children.length; i++) {
             const newElement = element.children[i];
             domRenderElement(newElement as ElementType, container, i, component);
@@ -88,7 +89,7 @@ var domRenderElement = function (element: ElementType, container: HTMLElement | 
     }
     
 };
-var getElementsFromHTML = function (html: string, events: FrontuComponentEventBinding) {
+var getElementsFromHTML = function (html: string, events: FrontuComponentEventBinding, substitutions: string[]) {
     const element: ElementType = {
         type: "",
         children: [],
@@ -99,7 +100,7 @@ var getElementsFromHTML = function (html: string, events: FrontuComponentEventBi
     const domElements = utils.getChildNodesFromHTMLString(html);
     for (let index = 0; index < domElements.length; index++) {
         const child = domElements[index];
-        const newElement = parseHTMLElement(child, events);
+        const newElement = parseHTMLElement(child, events, substitutions);
         if (newElement.type == "" && newElement.children == "") {
             continue;
         }
@@ -108,7 +109,7 @@ var getElementsFromHTML = function (html: string, events: FrontuComponentEventBi
     }
     return element
 };
-var parseHTMLElement = function (node: ChildNode, events: FrontuComponentEventBinding): ElementType {
+var parseHTMLElement = function (node: ChildNode, events: FrontuComponentEventBinding, substitutions: string[]): ElementType {
     const element: ElementType = {
         type: "",
         children: [],
@@ -118,21 +119,44 @@ var parseHTMLElement = function (node: ChildNode, events: FrontuComponentEventBi
         element.type = getHTMLElementType(node);
         element.children = []
         element.events = getHTMLElementeEvents(node, events)
-      
+
         for (let index = 0; index < node.childNodes.length; index++) {
             const child = node.childNodes[index];
-            element.children.push(parseHTMLElement(child, events));
+            element.children.push(parseHTMLElement(child, events, substitutions));
         }
     }
     if (node.nodeType == Node.TEXT_NODE) {
-        let newContent = node.textContent ? node.textContent : "";
-        /* console.log("New content before", newContent) */
-        newContent = collapseWhitespace(newContent, true, true)
-       /*  console.log("New content after", newContent) */
-        element.children = newContent;
+        element.children = parseHTMLTextElement(node, substitutions);
     }
     return element
 };
+var parseHTMLTextElement = function (node: ChildNode, substitutions: string[]): ElementType[] | string {
+    const element: ElementType[] = []
+    let newContent = node.textContent ? node.textContent : "";
+    newContent = collapseWhitespace(newContent, true, true)
+    if (newContent.includes("${")) {
+        
+        return getTextElementFromTextTemplate(newContent, substitutions)
+    } else {
+        return newContent;
+    }
+    return element
+};
+const getTextElementFromTextTemplate = function(templateString: string, substitutions: string[]){
+    const func = new Function(...Object.keys(substitutions), `return nodeTextTemplate\`${templateString}\`;`);
+    return func(...Object.values(substitutions));
+}
+window.nodeTextTemplate = function(pieces: any, ...substitutions: any[]): ElementType[] | string {
+    const element: ElementType[] = []
+
+    element.push( { type: "", children: pieces[0], events: [] })
+    for (var i = 0; i < substitutions.length; ++i) {
+        element.push( { type: "", children: substitutions[i], events: [] })
+        element.push( { type: "", children: pieces[i + 1], events: [] })
+    } 
+    return element
+
+}
 var getHTMLElementType = function (node: ChildNode): string {
     const element = node as HTMLElement
     let elementType = element.localName
@@ -144,17 +168,12 @@ var getHTMLElementeEvents = function (node: ChildNode, events: FrontuComponentEv
     for (const key in events) {
         if (Object.hasOwnProperty.call(events, key)) {
             const event = events[key];
-
-            
                 if (element.matches(key)) {
+                    /* console.log("adding events", events) */
                     newEvents = [...event]
-                    /* element.addEventListener(type, callback);
-                    this.eventBindingStore[selector + '.' + type].push({ element, callback }) */
-                }
-            
+                }       
         }
     }
-    /* console.log("newEvents", newEvents) */
     return newEvents
 };
 
@@ -174,4 +193,24 @@ function collapseWhitespace(str: string, trimLeft: boolean, trimRight: boolean, 
     }
     return lineBreakBefore + str + lineBreakAfter;
 }
-export { render }
+
+function template(pieces: any, ...substitutions: any[]) {
+    var result = pieces[0];
+/*     console.log("pieces", pieces)
+    console.log("substitutions", substitutions); */
+    const newSubstitutions: SustitutionDictionary = {}
+
+    for (var i = 0; i < substitutions.length; ++i) {
+        if (utils.isHTML(substitutions[i])) {
+            result += (substitutions[i] + pieces[i + 1]);
+        } else {
+            result += "${var_" + (i) +"}" + pieces[i + 1];
+            newSubstitutions["var_" + i] =  typeof substitutions[i] == 'number' ? substitutions[i].toString() : substitutions[i] ;
+        }
+        
+    }
+    
+    return { html: result, substitutions: newSubstitutions};
+
+}
+export { render, template }
