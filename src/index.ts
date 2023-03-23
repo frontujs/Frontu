@@ -1,2 +1,4 @@
 export * from './component'
-export * from './render'
+export * from './element'
+export * from './template'
+export * from './root'
